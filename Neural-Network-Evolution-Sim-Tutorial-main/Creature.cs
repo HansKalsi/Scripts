@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Creature : MonoBehaviour
 {
-    public bool mutateMutations = true;
+    public bool mutateMutations = false;
     public GameObject agentPrefab;
     public bool isUser = false;
     public bool canEat = true;
@@ -22,13 +22,14 @@ public class Creature : MonoBehaviour
     float elapsed = 0f;
     public float lifeSpan = 0f;
 
-    private static int agentRaycasts = 10;
+    private static int agentRaycasts = 20; // needs to be equal to the number of inputs in NN
     public float[] distances;
 
     public float mutationAmount = 0.8f;
     public float mutationChance = 0.2f; 
     public NN nn;
     public Movement movement;
+    public Colour_Neuron ColourNeuron;
 
     float relativeFoodX;
     float relativeFoodZ;
@@ -42,6 +43,7 @@ public class Creature : MonoBehaviour
     {
         nn = gameObject.GetComponent<NN>();
         movement = gameObject.GetComponent<Movement>();
+        ColourNeuron = gameObject.GetComponent<Colour_Neuron>();
         distances = new float[agentRaycasts + 1];
 
         this.name = "Agent";
@@ -156,7 +158,9 @@ public class Creature : MonoBehaviour
         //if the agent collides with a food object, it will eat it and gain energy.
         if (col.gameObject.tag == "Food" && canEat)
         {
-            energy += energyGained;
+            if (energy < 101) {
+                energy += energyGained;
+            }
             reproductionEnergy += reproductionEnergyGained;
             Destroy(col.gameObject);
         }
@@ -171,7 +175,7 @@ public class Creature : MonoBehaviour
             elapsed = elapsed % 1f;
 
             //subtract 1 energy per second
-            energy -= 1f;
+            energy -= 3f;
 
             //if agent has enough energy to reproduce, reproduce
             if (reproductionEnergy >= reproductionEnergyThreshold)
@@ -285,11 +289,20 @@ public class Creature : MonoBehaviour
             //copy the parent's neural network to the child
             child.GetComponent<NN>().layers = nn.copyLayers(null);
 
-            // save the parent's neural network state (since this parent was able to reproduce, so we can use them as a base in future)
-            Debug.Log("ATTEMPTED NETWORK STATE SAVE");
-            nn.SaveNeuralNetworkState();
+            // asexual birth
+            // copy parent's colour DNA to the child
+            Debug.Log("parents dna:");
+            Debug.Log(ColourNeuron.myDNA.DNA);
+            Colour_Neuron childsColourDNA = child.GetComponent<Colour_Neuron>();
+            childsColourDNA.myDNA.SetDNA(ColourNeuron.myDNA.DNA);
+            childsColourDNA.EnsureCorrectColour();
+            Debug.Log("child dna after parent passing:");
+            Debug.Log(childsColourDNA.myDNA.DNA);
         }
-        reproductionEnergy = 0;
 
+        // save the parent's neural network state (since this parent was able to reproduce, so we can use them as a base in future)
+        Debug.Log("ATTEMPTED NETWORK STATE SAVE");
+        nn.SaveNeuralNetworkState();
+        reproductionEnergy = 0;
     }
 }

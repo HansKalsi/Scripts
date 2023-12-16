@@ -7,7 +7,7 @@ using System.Linq;
 
 public class NN : MonoBehaviour
 {
-    int [] networkShape = {5,32,32,32,2};
+    int [] networkShape = {20,32,32,32,2};
     public Layer [] layers;
     public string filePath;
 
