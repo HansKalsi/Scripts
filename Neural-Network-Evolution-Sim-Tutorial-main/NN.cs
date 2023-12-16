@@ -1,21 +1,34 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using System.IO;
+using System.Text;
+using System.Linq;
 
 public class NN : MonoBehaviour
 {
-    int [] networkShape = {5,32,2};
+    int [] networkShape = {5,32,32,32,2};
     public Layer [] layers;
+    public string filePath;
 
     // Awake is called when the script instance is being loaded.
     // Start is called before the first frame update.
     // Awake gets called before Start which is why we use Awake here
     public void Awake()
     {
+        // assign filePath
+        filePath = Application.dataPath + "/Logs/best_nerual_network_log.txt";
+
+        // way to generate a new Layer without any log file
         layers = new Layer[networkShape.Length - 1];
 
         for(int i = 0; i < layers.Length; i++)
         {
             layers[i] = new Layer(networkShape[i], networkShape[i+1]);
         }
+
+        // generate layers via log file
+        LoadNeuralNetworkState();
 
         //This ensures that the random numbers we generate aren't the same pattern each time. 
         Random.InitState((int)System.DateTime.Now.Ticks);
@@ -46,15 +59,23 @@ public class NN : MonoBehaviour
     }
 
     //This function is used to copy the weights and biases from one neural network to another.
-    public Layer[] copyLayers()
+    public Layer[] copyLayers(Layer[] baseLayer)
     {
-        Layer[] tmpLayers = new Layer[networkShape.Length - 1];
+        Layer[] tmpLayers;
+
+        if (baseLayer != null) {
+            tmpLayers = baseLayer;
+        } else {
+            tmpLayers = new Layer[networkShape.Length - 1];
+        }
+
         for(int i = 0; i < layers.Length; i++)
         {
             tmpLayers[i] = new Layer(networkShape[i], networkShape[i+1]);
             System.Array.Copy (layers[i].weightsArray, tmpLayers[i].weightsArray, layers[i].weightsArray.GetLength(0)*layers[i].weightsArray.GetLength(1));
             System.Array.Copy (layers[i].biasesArray, tmpLayers[i].biasesArray, layers[i].biasesArray.GetLength(0));
         }
+
         return(tmpLayers);
     }
 
@@ -63,7 +84,7 @@ public class NN : MonoBehaviour
         //attributes, variables and properties of the class Layer
         public float[,] weightsArray;
         public float[] biasesArray;
-        public float [] nodeArray;
+        public float[] nodeArray;
 
         public int n_inputs;
         public int n_neurons;
@@ -115,20 +136,20 @@ public class NN : MonoBehaviour
             //     nodeArray[i] = 1/(1 + Mathf.Exp(-nodeArray[i]));
             // }
 
-            //tanh function
-            for(int i = 0; i < nodeArray.Length; i++)
-            {
-                nodeArray[i] = (float)System.Math.Tanh(nodeArray[i]);
-            }
-
-            // //relu function
+            // //tanh function
             // for(int i = 0; i < nodeArray.Length; i++)
             // {
-            //     if(nodeArray[i] < 0)
-            //     {
-            //         nodeArray[i] = 0;
-            //     }
+            //     nodeArray[i] = (float)System.Math.Tanh(nodeArray[i]);
             // }
+
+            //relu function
+            for(int i = 0; i < nodeArray.Length; i++)
+            {
+                if(nodeArray[i] < 0)
+                {
+                    nodeArray[i] = 0;
+                }
+            }
         }
 
         //This is used to randomly modify the weights and biases for the Evolution Sim and Genetic Algorithm.
@@ -159,6 +180,71 @@ public class NN : MonoBehaviour
         for(int i = 0; i < layers.Length; i++)
         {
             layers[i].MutateLayer(mutationChance, mutationAmount);
+        }
+    }
+
+    public void SaveNeuralNetworkState()
+    {
+        StringBuilder sb = new StringBuilder();
+
+        // Iterate over each layer
+        foreach (var layer in this.layers)
+        {
+            // Serialize layer dimensions
+            sb.AppendLine($"{layer.n_inputs},{layer.n_neurons}");
+
+            // Serialize weights
+            for (int i = 0; i < layer.n_neurons; i++)
+            {
+                for (int j = 0; j < layer.n_inputs; j++)
+                {
+                    sb.Append(layer.weightsArray[i, j].ToString());
+                    if (j < layer.n_inputs - 1)
+                        sb.Append(",");
+                }
+                sb.AppendLine();
+            }
+
+            // Serialize biases
+            sb.AppendLine(string.Join(",", layer.biasesArray));
+
+            // Separator between layers
+            sb.AppendLine("---");
+        }
+
+        // Write to file
+        File.WriteAllText(this.filePath, sb.ToString());
+    }
+
+    public void LoadNeuralNetworkState()
+    {
+        var lines = File.ReadAllLines(this.filePath);
+
+        int layerIndex = 0;
+        int currentLine = 0;
+        while (currentLine < lines.Length && layerIndex < this.layers.Length)
+        {
+            // Deserialize layer dimensions
+            var layerDims = lines[currentLine++].Split(',').Select(int.Parse).ToArray();
+            var layer = new Layer(layerDims[0], layerDims[1]);
+
+            // Deserialize weights
+            for (int i = 0; i < layer.n_neurons; i++)
+            {
+                var weights = lines[currentLine++].Split(',').Select(float.Parse).ToArray();
+                for (int j = 0; j < layer.n_inputs; j++)
+                {
+                    layer.weightsArray[i, j] = weights[j];
+                }
+            }
+
+            // Deserialize biases
+            layer.biasesArray = lines[currentLine++].Split(',').Select(float.Parse).ToArray();
+
+            this.layers[layerIndex++] = layer;
+
+            // Skip the separator line
+            currentLine++;
         }
     }
 }

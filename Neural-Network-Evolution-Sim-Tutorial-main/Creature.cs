@@ -8,20 +8,22 @@ public class Creature : MonoBehaviour
     public GameObject agentPrefab;
     public bool isUser = false;
     public bool canEat = true;
-    public float viewDistance = 20;
+    public float viewDistance = 42;
     public float size = 1.0f;
     public float energy = 20;
     public float energyGained = 10;
     public float reproductionEnergyGained = 1;
     public float reproductionEnergy = 0;
-    public float reproductionEnergyThreshold = 10;
+    public float reproductionEnergyThreshold = 5;
     public float FB = 0;
     public float LR = 0;
     public int numberOfChildren = 1;
     private bool isMutated = false;
     float elapsed = 0f;
     public float lifeSpan = 0f;
-    public float[] distances = new float[6];
+
+    private static int agentRaycasts = 10;
+    public float[] distances;
 
     public float mutationAmount = 0.8f;
     public float mutationChance = 0.2f; 
@@ -40,7 +42,7 @@ public class Creature : MonoBehaviour
     {
         nn = gameObject.GetComponent<NN>();
         movement = gameObject.GetComponent<Movement>();
-        distances = new float[6];
+        distances = new float[agentRaycasts + 1];
 
         this.name = "Agent";
     }
@@ -86,10 +88,10 @@ public class Creature : MonoBehaviour
 
         // This section of code is for the new food detection system (Raycasts)
         // Set up a variable to store the number of raycasts to use
-        int numRaycasts = 5;
+        int numRaycasts = distances.Length;
 
         // Set up a variable to store the angle between raycasts
-        float angleBetweenRaycasts = 30;
+        float angleBetweenRaycasts = 180 / (agentRaycasts + 1);
 
         // Set up an array to store the distances to the food objects detected by the raycasts
 
@@ -281,7 +283,11 @@ public class Creature : MonoBehaviour
                 Quaternion.identity);
             
             //copy the parent's neural network to the child
-            child.GetComponent<NN>().layers = GetComponent<NN>().copyLayers();
+            child.GetComponent<NN>().layers = nn.copyLayers(null);
+
+            // save the parent's neural network state (since this parent was able to reproduce, so we can use them as a base in future)
+            Debug.Log("ATTEMPTED NETWORK STATE SAVE");
+            nn.SaveNeuralNetworkState();
         }
         reproductionEnergy = 0;
 
